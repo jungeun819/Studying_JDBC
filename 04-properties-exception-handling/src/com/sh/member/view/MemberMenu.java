@@ -28,7 +28,7 @@ public class MemberMenu {
 				+ "4. 회원 가입\n"
 				+ "5. 회원 정보 수정\n"
 				+ "6. 회원 탈퇴\n"
-				+ "7. 전체 회원수 조회\n"
+				+ "7. 탈퇴한 회원 조회\n"
 				+ "0. 프로그램 종료\n"
 				+ "=======================\n"
 				+ "선택 : ";
@@ -76,6 +76,9 @@ public class MemberMenu {
 				}
 				displayResult("> 회원 탈퇴 ", result);
 				break;
+			case "7" : // 탈퇴한 회원 조회
+				displayMemberDel(memberController.findAllMemberDel());
+				break;
 			case "0": return;
 			default: System.out.println("> 잘못 입력하셨습니다.");
 			}
@@ -104,25 +107,29 @@ public class MemberMenu {
 			System.out.print(survMenu);
 			String choice = sc.next();
 			int result = 0;
+			String colName = null;
+			Object newValue = null;
 			
 			switch (choice) {
 			case "1": // 이름 변경
 				System.out.print("> 변경할 이름을 입력해 주세요 : ");
-				String newName = sc.next();
-				result = memberController.updateMemberName(id, newName);
+				colName = "name";
+				newValue = sc.next();
+				result = memberController.updateMemberInfo(id, colName, newValue);
 				displayResult("> 이름 변경 ", result);
 				break;
 			case "2": // 생일 변경
-				System.out.print("> 변경할 날짜를 입력해 주세요(19990909) : ");
-				LocalDate birthday = LocalDate.parse(sc.next(), DateTimeFormatter.ofPattern("yyyyMMdd"));
-				Date newBirthday = Date.valueOf(birthday);
-				result = memberController.updateMemberBirthday(id, newBirthday);
+				System.out.print("> 변경할 날짜를 입력해 주세요 (19990909) : ");
+				colName = "birthday";
+				newValue = Date.valueOf(LocalDate.parse(sc.next(), DateTimeFormatter.ofPattern("yyyyMMdd")));
+				result = memberController.updateMemberInfo(id, colName, newValue);
 				displayResult("> 생일 변경 ", result);
 				break;
 			case "3": // 이메일 변경
 				System.out.print("> 변경할 이메일을 입력해 주세요 : ");
-				String newEmail = sc.next();
-				result = memberController.updateMemberEmail(id, newEmail);
+				colName = "email";
+				newValue = sc.next();
+				result = memberController.updateMemberInfo(id, colName, newValue);
 				displayResult("> 이메일 변경 ", result);
 				break;
 			case "0": // 메인메뉴로 돌아가기
@@ -169,8 +176,7 @@ public class MemberMenu {
 	 */
 	private Member inputMember() {
 		System.out.println("> 새 회원정보를 입력하세요.");
-		System.out.print("> 아이디 : ");
-		String id = sc.next();
+		String id = checkMode("id", "아이디");
 		System.out.print("> 이름 : ");
 		String name = sc.next();
 		System.out.print("> 성별(M/F) : ");
@@ -178,11 +184,28 @@ public class MemberMenu {
 		System.out.print("> 생일(19990909) : ");
 		LocalDate _birthday = LocalDate.parse(sc.next(), DateTimeFormatter.ofPattern("yyyyMMdd"));
 		Date birthday = Date.valueOf(_birthday);
-		System.out.print("> 이메일 : ");
-		String email = sc.next();
+		String email = checkMode("email", "이메일");
 		return new Member(id, name, gender, birthday, email, 0, null);
 	}
 
+	/**
+	 * ▶ 아이디, 이메일 중복 검사
+	 * @param colName
+	 * @param search
+	 * @return
+	 */
+	private String checkMode(String colName, String search) {
+		while(true) {
+			System.out.print("> " + search + " : ");
+			String value = sc.next();
+			Member member = memberController.checkForDuplicates(colName, value);
+			if(member == null) {
+				return value;
+			}
+			System.out.println("> 존재하는 " + search + "입니다.");
+		}
+	}
+	
 	/**
 	 * ▶ 두 명 이상 회원 조회
 	 * @param members
@@ -206,39 +229,18 @@ public class MemberMenu {
 						  		member.getBirthday(), 
 						  		member.getEmail(), 
 						  		member.getPoint(), 
-						  		member.getRegDate());
+						  		new SimpleDateFormat("yy/MM/dd hh:mm").format(member.getRegDate()));
 			}
 			System.out.println("----------------------------------------------------------------------------------------------");
 		}	
 	}
 
 	/**
-	 * ▶ 한 명 회원 조회
-	 * @param member
-	 */
-	private void displayMember(Member member) {
-		if(member == null) {
-			System.out.println("> 조회된 결과가 없습니다.");
-		}
-		else {
-			System.out.println("-------------------------------");
-			System.out.println("ID 		: " + member.getId());
-			System.out.println("NAME 		: " + member.getName());
-			System.out.println("GENDER 		: " + member.getGender());
-			System.out.println("BIRTHDAY 	: " + member.getBirthday());
-			System.out.println("EMAIL 		: " + member.getEmail());
-			System.out.println("POINT 		: " + member.getPoint());
-			System.out.println("REGDATE 	: " + member.getRegDate());
-			System.out.println("-------------------------------");
-		}
-	}
-	
-	/**
-	 * 회원 삭제 테이블
+	 * ▶ 탈퇴 회원 조회
 	 * @param members
 	 */
 	private void displayMemberDel(List<MemberDel> members) {
-    	if(members == null || members.isEmpty()) {
+		if(members == null || members.isEmpty()) {
 			// 조회결과가 없는 경우
 			System.out.println("> 탈퇴회원이 없습니다.");
 		}
@@ -262,8 +264,28 @@ public class MemberMenu {
 			System.out.println("-----------------------------------------------------------------");
 		}
 	}
-	
 
+	/**
+	 * ▶ 한 명 회원 조회
+	 * @param member
+	 */
+	private void displayMember(Member member) {
+		if(member == null) {
+			System.out.println("> 조회된 결과가 없습니다.");
+		}
+		else {
+			System.out.println("-------------------------------");
+			System.out.println("ID 		: " + member.getId());
+			System.out.println("NAME 		: " + member.getName());
+			System.out.println("GENDER 		: " + member.getGender());
+			System.out.println("BIRTHDAY 	: " + member.getBirthday());
+			System.out.println("EMAIL 		: " + member.getEmail());
+			System.out.println("POINT 		: " + member.getPoint());
+			System.out.println("REGDATE 	: " + member.getRegDate());
+			System.out.println("-------------------------------");
+		}
+	}
+	
 	/**
 	 * ▶ 실행 성공 여부 확인
 	 * @param mode
